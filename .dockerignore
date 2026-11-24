@@ -1,0 +1,15 @@
+# Không đưa vào build context / image:
+#  - ảnh khách (dữ liệu sinh trắc học, nặng): dataset được mount lúc chạy, không đóng vào image
+#  - khoá TLS, file .env (có mật khẩu), kết quả đo, tài liệu, test
+.git
+.env
+**/.env
+certs
+dataset
+results
+docs
+tests
+**/__pycache__
+**/*.pyc
+*.zip
+*.npz

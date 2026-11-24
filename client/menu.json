@@ -1,0 +1,12 @@
+[
+  {"name": "Cà phê đen",        "price": 25000},
+  {"name": "Cà phê sữa đá",     "price": 29000},
+  {"name": "Bạc xỉu",           "price": 32000},
+  {"name": "Cappuccino",        "price": 49000},
+  {"name": "Latte",             "price": 49000},
+  {"name": "Cold brew",         "price": 45000},
+  {"name": "Trà đào cam sả",    "price": 45000},
+  {"name": "Trà vải",           "price": 42000},
+  {"name": "Matcha đá xay",     "price": 55000},
+  {"name": "Bánh croissant",    "price": 35000}
+]

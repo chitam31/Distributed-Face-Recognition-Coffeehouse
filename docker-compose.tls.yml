@@ -1,0 +1,13 @@
+# Lớp phủ bật TLS cho RabbitMQ:
+#   scripts/gen_certs.sh <IP-server>
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d --scale worker=3
+# Worker trong mạng nội bộ docker vẫn nối cổng 5672 (không TLS); các laptop chi nhánh dùng 5671 (TLS).
+# Khi triển khai thật nên đóng cổng 5672 ra ngoài (bỏ dòng "5672:5672") và bắt buộc TLS.
+services:
+  rabbitmq:
+    ports:
+      - "127.0.0.1:5671:5671"
+      - "${RABBIT_BIND_IP:-127.0.0.2}:5671:5671"
+    volumes:
+      - ./docker/rabbitmq/tls.conf:/etc/rabbitmq/conf.d/20-tls.conf:ro
+      - ./certs:/etc/rabbitmq/certs:ro

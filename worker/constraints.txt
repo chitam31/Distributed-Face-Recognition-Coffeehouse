@@ -1,0 +1,9 @@
+# Ràng buộc phiên bản cho MỌI lệnh pip trong Dockerfile (qua PIP_CONSTRAINT).
+# Lý do: insightface==0.7.3 kéo theo opencv-python / albumentations / scikit-image... không ghim phiên bản.
+# Nếu pip tự nâng numpy lên 2.x thì onnxruntime 1.18.1 (build với numpy 1.x) sẽ lỗi lúc import.
+# Ràng buộc chỉ chặn việc đó: pip sẽ tự lùi các gói khác về bản tương thích với numpy 1.26.4.
+numpy==1.26.4
+opencv-python==4.9.0.80
+opencv-python-headless==4.9.0.80
+onnxruntime==1.18.1
+albumentations<2

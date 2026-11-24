@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Quản trị Coffeehouse (chỉ đọc)</title>
+<style>
+/* Cùng bảng màu với trang chi nhánh. Màu bốn chi nhánh A-D lấy theo thứ tự cố định của bảng màu phân loại và đã
+   chạy bộ kiểm (validate_palette.js) trên đúng hai nền của trang: nền trắng #ffffff (kiểm lại 14/11) đạt mọi điều kiện, hai màu
+   dưới 3:1 (#1baf7a 2,82; #eda100 2,17) nên luôn có chú giải và bảng số. Trang nay luôn sáng. */
+:root{
+  color-scheme:light;   /* luôn sáng, nền trắng, không đổi theo chế độ tối của máy (14/11) */
+  --bg:#ffffff; --surface:#ffffff; --sunk:#f3f6f6; --ink:#1a2327; --ink2:#4f5f66; --line:#d7dfde; --grid:#e8eded;
+  --brand:#a85a14; --brand-hover:#8f4a0d; --brand-ink:#fff; --focus:#0f6fd1;
+  --good:#1b7f3b; --warn:#a15c00; --bad:#b3261e; --info:#1565c0;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --other:#8a9499;
+  --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"SF Pro Text","Helvetica Neue",Roboto,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+h1,h2,h3,p{margin:0}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;max-width:1320px;margin:0 auto;padding:18px 20px 12px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand svg{width:38px;height:38px;flex:none;color:var(--brand)}
+.brand h1{font-size:22px;line-height:1.15;font-weight:700;letter-spacing:-.015em}
+.brand p{font-size:13px;color:var(--ink2)}
+.who{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pill{font-size:13px;padding:4px 12px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+.pill b{color:var(--ink);font-weight:600}
+.pill.ok::before,.pill.bad::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.pill.ok::before{background:var(--good)} .pill.bad{color:var(--bad);border-color:var(--bad)} .pill.bad::before{background:var(--bad)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:var(--sunk);cursor:pointer;font-weight:600;font-size:14px}
+.btn:hover:not(:disabled){background:var(--line)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);min-height:46px;font-size:16px}
+.btn.primary:hover:not(:disabled){background:var(--brand-hover)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--sunk)}
+.seg button{border:0;background:transparent;padding:6px 12px;cursor:pointer;font-size:14px;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);font-weight:600}
+.wrap{max-width:1320px;margin:0 auto;padding:0 20px 40px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:14px}
+.toolbar .note{font-size:13px;color:var(--ink2)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;min-width:0}
+.card h2{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.card .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.card .hd small{font-size:13px;color:var(--ink2)}
+.span12{grid-column:1/-1}.span7{grid-column:span 7}.span5{grid-column:span 5}.span6{grid-column:span 6}
+@media (max-width:1000px){.span7,.span5,.span6{grid-column:1/-1}}
+.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;grid-column:1/-1}
+@media (max-width:1000px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+.tile span{display:block;font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile b{display:block;font-size:28px;line-height:1.2;font-weight:700;letter-spacing:-.02em}
+.tile small{display:block;font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.alert{border-color:var(--bad)} .tile.alert b{color:var(--bad)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-weight:600;color:var(--ink2);font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
+.tbl td.num,.tbl th.num{text-align:right}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .mono{font-family:var(--mono);font-size:13px}
+.tbl .dim{color:var(--ink2)}
+.scroll{overflow-x:auto}
+.tbl tr.fresh td{animation:fresh 2.4s ease-out}
+@keyframes fresh{0%{background:color-mix(in srgb,var(--brand) 22%,transparent)}100%{background:transparent}}
+.key{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+.st{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:13px}
+.st::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.st.RECOGNIZED{color:var(--good)} .st.NEW_CUSTOMER{color:var(--info)} .st.UNKNOWN,.st.NO_FACE,.st.MULTIPLE_FACES{color:var(--warn)} .st.ERROR{color:var(--bad)}
+.match{color:var(--good);font-weight:600} .mismatch{color:var(--bad);font-weight:600}
+.err-box{border:1px solid var(--bad);color:var(--bad);border-radius:10px;padding:8px 12px;font-size:14px;margin-bottom:10px}
+.empty{color:var(--ink2);font-size:14px;padding:18px 4px;text-align:center}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2);margin-bottom:6px}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:220px}
+.chart .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:8px;padding:7px 10px;font-size:13px;line-height:1.45;white-space:nowrap;z-index:2}
+.chart .tip .key{width:9px;height:9px}
+.axis text{fill:var(--ink2);font-size:11px;font-family:var(--sans)}
+.axis line{stroke:var(--grid)}
+.foot{margin-top:18px;font-size:13px;color:var(--ink2);line-height:1.6}
+.login{max-width:400px;margin:28px auto 0}
+.login h2{font-size:20px;margin-bottom:6px}
+.login p{font-size:14px;color:var(--ink2);margin-bottom:14px}
+.login label{display:block;font-weight:600;margin:12px 0 6px}
+.login input{width:100%;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--sunk)}
+.login .btn{width:100%;margin-top:16px}
+.login .err{color:var(--bad);font-size:14px;margin-top:10px}
+.login .err:empty{display:none}
+.rec dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;margin:10px 0 0}
+.rec dt{color:var(--ink2)}
+.rec dd{margin:0}
+/* ---------- cỡ lớn cho dễ nhìn khi quay video (14/11) ---------- */
+body{font-size:17px}
+.top,.wrap{max-width:1400px}
+.brand svg{width:44px;height:44px}.brand h1{font-size:28px}.brand p{font-size:15.5px}
+.pill{font-size:15px;padding:6px 14px}
+.btn{min-height:46px;padding:0 18px;font-size:16px;border-radius:11px}
+.btn.primary{min-height:56px;font-size:18px}
+.seg{border-radius:12px}.seg button{padding:10px 18px;font-size:16px}
+.toolbar{gap:12px 16px;margin-bottom:18px}.toolbar .note{font-size:15px}
+.grid{gap:20px}
+.card{padding:22px 24px;border-radius:16px;box-shadow:0 1px 3px rgba(16,37,42,.06)}
+.card h2{font-size:20px}.card .hd{margin-bottom:14px}.card .hd small{font-size:15px}
+.tiles{gap:16px}
+.tile{padding:16px 18px;border-radius:16px;box-shadow:0 1px 3px rgba(16,37,42,.06)}.tile span{font-size:15px}.tile b{font-size:38px}.tile small{font-size:14px}
+.tbl{font-size:16px}.tbl th{font-size:14px;padding:9px 10px}.tbl td{padding:9px 10px}.tbl .mono{font-size:15px}
+.key{width:12px;height:12px}
+.st{font-size:15px}.st::before{width:10px;height:10px}
+.err-box,.empty{font-size:16px}
+.legend{font-size:15px;gap:8px 18px;margin-bottom:10px}
+.chart svg{height:280px}
+.chart .tip{font-size:15px;padding:9px 12px}
+.axis text{font-size:13px}
+.foot{font-size:15px}
+.login{max-width:480px}.login h2{font-size:24px}.login p{font-size:16px}.login label{font-size:17px}
+.login input{min-height:54px;font-size:17px}
+.rec dl{font-size:16px;gap:6px 16px}
+</style>
+</head>
+<body data-auth="unknown">
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="5" y="7" width="30" height="20" rx="3"/><path d="M14 33h12M20 27v6"/><path d="M11 21l5-6 4 4 4-6 5 8"/>
+    </svg>
+    <div><h1>Quản trị Coffeehouse</h1><p>Máy chủ lab · chỉ đọc · tự làm mới 2 giây</p></div>
+  </div>
+  <div class="who" id="who" hidden>
+    <span class="pill" id="clock" title="Giờ của MySQL: cùng đồng hồ với cột created_at trong nhật ký">giờ CSDL: --</span>
+    <span class="pill" id="st-mysql">MySQL</span>
+    <span class="pill" id="st-rabbit">RabbitMQ</span>
+    <span class="pill" id="who-user"></span>
+    <button class="btn" id="btn-logout" type="button">Đăng xuất</button>
+  </div>
+</header>
+
+<section class="login card" id="login" hidden>
+  <h2>Đăng nhập quản trị</h2>
+  <p>Trang này chỉ xem: không có nút nào sửa dữ liệu khách, đơn hay hàng đợi.</p>
+  <form id="login-form" autocomplete="on">
+    <label for="in-user">Tài khoản</label>
+    <input id="in-user" name="username" type="text" value="admin" autocomplete="username" required>
+    <label for="in-pass">Mật khẩu</label>
+    <input id="in-pass" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn primary" id="btn-login" type="submit">Đăng nhập</button>
+    <p class="err" id="login-err" role="alert"></p>
+  </form>
+</section>
+
+<div class="wrap" id="app" hidden>
+  <div class="toolbar">
+    <div class="seg" id="win" role="group" aria-label="Cửa sổ thời gian"></div>
+    <button class="btn" id="btn-pause" type="button" aria-pressed="false">Tạm dừng</button>
+    <span class="note" id="updated">đang tải...</span>
+  </div>
+
+  <div class="grid">
+    <div class="tiles" id="tiles"></div>
+
+    <section class="card span12">
+      <div class="hd"><h2>Yêu cầu nhận diện theo thời gian, theo chi nhánh</h2><small id="chart-sub"></small></div>
+      <div class="err-box" id="err-chart" hidden></div>
+      <div class="legend" id="legend"></div>
+      <div class="chart" id="chart"></div>
+    </section>
+
+    <section class="card span12">
+      <div class="hd"><h2>Theo chi nhánh</h2><small>chi nhánh do máy gửi tự khai trong message</small></div>
+      <div class="err-box" id="err-branch" hidden></div>
+      <div class="scroll"><table class="tbl" id="t-branch"></table></div>
+    </section>
+    <section class="card span5">
+      <div class="hd"><h2>Theo worker</h2><small>ai nhận việc nào do RabbitMQ chia (prefetch = 1)</small></div>
+      <div class="err-box" id="err-worker" hidden></div>
+      <div class="scroll"><table class="tbl" id="t-worker"></table></div>
+    </section>
+
+    <section class="card span7">
+      <div class="hd"><h2>Hàng đợi</h2><small>management API của RabbitMQ</small></div>
+      <div class="err-box" id="err-queue" hidden></div>
+      <div class="scroll"><table class="tbl" id="t-queue"></table></div>
+    </section>
+    <section class="card span12">
+      <div class="hd"><h2>Kết nối đang mở</h2><small>tài khoản đã được broker kiểm mật khẩu</small></div>
+      <div class="err-box" id="err-conn" hidden></div>
+      <div class="scroll"><table class="tbl" id="t-conn"></table></div>
+    </section>
+
+    <section class="card span12">
+      <div class="hd"><h2>Nhật ký nhận diện gần nhất</h2><small id="log-sub"></small></div>
+      <div class="err-box" id="err-log" hidden></div>
+      <div class="scroll"><table class="tbl" id="t-log"></table></div>
+    </section>
+
+    <section class="card span6">
+      <div class="hd"><h2>Đơn gần nhất</h2><small>chỉ mã khách, không hiện tên hay số điện thoại</small></div>
+      <div class="err-box" id="err-order" hidden></div>
+      <div class="scroll"><table class="tbl" id="t-order"></table></div>
+    </section>
+    <section class="card span6 rec">
+      <div class="hd"><h2>Đối chiếu MySQL ↔ pgvector</h2><small>cùng phép tính với tools.reconcile, không có --fix</small></div>
+      <button class="btn" id="btn-rec" type="button">Chạy đối chiếu</button>
+      <div id="rec-out"><p class="empty">Chưa chạy. Kết quả được giữ 30 giây để tránh chạy dồn.</p></div>
+    </section>
+  </div>
+  <p class="foot">
+    Mọi mốc giờ trên trang lấy từ <b>đồng hồ MySQL</b> (cột <code>created_at</code>), hiện theo giờ Việt Nam (UTC+7); di chuột lên giờ để xem UTC.
+    Độ trễ là thời gian worker xử lý (<code>latency_ms</code>), không gồm thời gian chờ trong hàng đợi. p50 và p95 dùng cùng công thức nội suy với báo cáo.
+    Cột “chi nhánh” trong nhật ký là chi nhánh do máy gửi tự khai; bảng “Kết nối đang mở” là tài khoản đã được RabbitMQ xác thực, nên hai bên phải khớp (branch_b gửi B).
+  </p>
+</div>
+
+<script>
+"use strict";
+const BRANCH_COLOR = {A:"var(--s1)", B:"var(--s2)", C:"var(--s3)", D:"var(--s4)"};
+const STATUS_TEXT = {RECOGNIZED:"khách quen", NEW_CUSTOMER:"khách mới", UNKNOWN:"chưa nhận ra", NO_FACE:"không thấy mặt",
+                     MULTIPLE_FACES:"nhiều mặt", ERROR:"lỗi"};
+const WIN_TEXT = {5:"5 phút", 15:"15 phút", 60:"1 giờ", 360:"6 giờ", 1440:"24 giờ"};
+const state = {minutes:15, paused:false, inflight:false, lastLogId:null, data:null};
+const $ = id => document.getElementById(id);
+
+function el(tag, attrs, ...kids){
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})){
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids){ if (k !== null && k !== undefined) n.append(k instanceof Node ? k : document.createTextNode(String(k))); }
+  return n;
+}
+function svg(tag, attrs){
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v);
+  return n;
+}
+const fmtInt = v => (v === null || v === undefined) ? "–" : Number(v).toLocaleString("vi-VN");
+const fmtMs = v => (v === null || v === undefined) ? "–" : Math.round(v).toLocaleString("vi-VN");
+const fmtVnd = v => (v === null || v === undefined) ? "–" : Math.round(v).toLocaleString("vi-VN") + "đ";
+function vn(iso, withDate){
+  if (!iso) return "–";
+  const d = new Date(new Date(iso).getTime() + 7 * 3600 * 1000);
+  const p = x => String(x).padStart(2, "0");
+  const t = `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+  return withDate ? `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)} ${t}` : t;
+}
+function timeCell(iso, withDate){ return el("td", {class:"mono", title: iso ? iso.replace("T", " ").replace("Z", " UTC") : null}, vn(iso, withDate)); }
+function branchCell(b){ return el("td", {}, el("span", {class:"key", style:`background:${BRANCH_COLOR[b] || "var(--other)"}`}), b || "?"); }
+function statusEl(s){ return el("span", {class:"st " + s}, STATUS_TEXT[s] || s); }
+function ago(iso, nowIso){
+  if (!iso || !nowIso) return "–";
+  const s = Math.max(0, (new Date(nowIso) - new Date(iso)) / 1000);
+  if (s < 60) return Math.round(s) + " giây trước";
+  if (s < 3600) return Math.round(s / 60) + " phút trước";
+  return Math.round(s / 3600) + " giờ trước";
+}
+function table(id, head, rows, emptyText){
+  const t = $(id); t.replaceChildren();
+  const tr = el("tr");
+  for (const h of head){ const [label, num] = Array.isArray(h) ? h : [h, false]; tr.append(el("th", {class: num ? "num" : null, scope:"col"}, label)); }
+  t.append(el("thead", {}, tr));
+  const tb = el("tbody");
+  if (!rows.length){ tb.append(el("tr", {}, el("td", {colspan: head.length, class:"empty"}, emptyText || "chưa có dữ liệu"))); }
+  for (const r of rows) tb.append(r);
+  t.append(tb);
+}
+function errBox(id, msg){ const b = $(id); b.hidden = !msg; b.textContent = msg ? "Không đọc được: " + msg : ""; }
+
+async function api(path, opts){
+  const res = await fetch(path, Object.assign({credentials:"same-origin", headers:{"Accept":"application/json"}}, opts || {}));
+  let body = null; try { body = await res.json(); } catch (_) { body = null; }
+  if (res.status === 401 && path !== "/api/login"){ showLogin("Phiên đã hết hạn, đăng nhập lại."); throw new Error("401"); }
+  if (!res.ok) throw new Error((body && body.error) || ("HTTP " + res.status));
+  return body;
+}
+
+// ------------------------------------------------------------------ đăng nhập
+function showLogin(msg){
+  document.body.dataset.auth = "out";
+  $("app").hidden = true; $("who").hidden = true; $("login").hidden = false;
+  $("login-err").textContent = msg || ""; $("in-pass").value = ""; $("in-pass").focus();
+}
+function showApp(user){
+  document.body.dataset.auth = "in";
+  $("login").hidden = true; $("app").hidden = false; $("who").hidden = false;
+  $("who-user").textContent = "Tài khoản: " + user;
+  poll();
+}
+$("login-form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  $("btn-login").disabled = true; $("login-err").textContent = "";
+  try {
+    const r = await api("/api/login", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({username: $("in-user").value, password: $("in-pass").value})});
+    $("in-pass").value = ""; showApp(r.user);
+  } catch (e) { $("login-err").textContent = e.message; }
+  finally { $("btn-login").disabled = false; }
+});
+$("btn-logout").addEventListener("click", async () => {
+  try { await api("/api/logout", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"}); } catch (_) {}
+  state.data = null; state.lastLogId = null; showLogin("Đã đăng xuất.");
+});
+
+// ------------------------------------------------------------------ thanh công cụ
+function buildWindows(list){
+  const seg = $("win"); if (seg.childElementCount) return;
+  for (const m of list){
+    const b = el("button", {type:"button", "aria-pressed": String(m === state.minutes)}, WIN_TEXT[m] || (m + " phút"));
+    b.addEventListener("click", () => {
+      state.minutes = m; state.lastLogId = null;
+      for (const x of seg.children) x.setAttribute("aria-pressed", String(x === b));
+      poll(true);
+    });
+    seg.append(b);
+  }
+}
+$("btn-pause").addEventListener("click", ev => {
+  state.paused = !state.paused;
+  ev.currentTarget.setAttribute("aria-pressed", String(state.paused));
+  ev.currentTarget.textContent = state.paused ? "Tiếp tục làm mới" : "Tạm dừng";
+  if (!state.paused) poll(true);
+});
+
+// ------------------------------------------------------------------ vẽ
+function tile(label, value, sub, alert){
+  return el("div", {class: "tile" + (alert ? " alert" : "")}, el("span", {}, label), el("b", {}, value), el("small", {}, sub || " "));
+}
+function renderTiles(d){
+  const db = d.db, rb = d.rabbit, tiles = $("tiles"); tiles.replaceChildren();
+  const q = name => rb ? rb.queues.find(x => x.name === name) : null;
+  const face = q("face.requests"), orders = q("orders");
+  const dlq = rb ? rb.queues.filter(x => x.is_dlq).reduce((s, x) => s + x.ready + x.unacked, 0) : null;
+  const branchesLive = rb ? new Set(rb.connections.filter(c => c.branch).map(c => c.branch)).size : null;
+  tiles.append(
+    tile(`Yêu cầu trong ${WIN_TEXT[d.minutes]}`, db ? fmtInt(db.window_rows) : "–",
+         db ? `${(db.window_rows / d.minutes).toLocaleString("vi-VN", {maximumFractionDigits:1})} yêu cầu/phút` + (db.truncated ? " · đã cắt" : "") : "MySQL lỗi"),
+    tile("Khách", db ? fmtInt(db.totals.customers) : "–", db ? `mã lớn nhất ${db.totals.max_customer_id}` : ""),
+    tile("Đơn", db ? fmtInt(db.totals.orders) : "–", db ? `${fmtInt(db.totals.photos)} ảnh · ${fmtInt(db.totals.logs)} dòng log` : ""),
+    tile("face.requests chờ", face ? fmtInt(face.ready) : "–", face ? `${face.unacked} đang xử lý (chưa ack)` : (rb ? "chưa có hàng đợi" : "RabbitMQ lỗi")),
+    tile("Worker đang nghe", face ? fmtInt(face.consumers) : "–", orders ? `orders: ${orders.consumers} consumer` : ""),
+    tile("Thư chết (DLQ)", dlq === null ? "–" : fmtInt(dlq), branchesLive === null ? "" : `${branchesLive} chi nhánh đang nối`, dlq > 0)
+  );
+}
+
+function renderChart(d){
+  const box = $("chart"); box.replaceChildren();
+  const legend = $("legend"); legend.replaceChildren();
+  errBox("err-chart", d.errors.mysql);
+  if (!d.db){ $("chart-sub").textContent = ""; return; }
+  const tl = d.db.timeline, branches = d.db.branches;
+  const base = branches.filter(b => BRANCH_COLOR[b]), extra = branches.filter(b => !BRANCH_COLOR[b]);
+  const series = base.concat(extra.length ? ["khác"] : []);
+  for (const s of series) legend.append(el("span", {}, el("span", {class:"key", style:`background:${BRANCH_COLOR[s] || "var(--other)"}`}), s === "khác" ? "chi nhánh khác" : "Chi nhánh " + s));
+  const bucketTxt = tl.bucket_s < 60 ? tl.bucket_s + " giây" : (tl.bucket_s / 60) + " phút";
+  $("chart-sub").textContent = `mỗi cột ${bucketTxt} · giờ Việt Nam`;
+  const bars = tl.bars.map(b => {
+    const parts = base.map(s => [s, b.counts[s] || 0]);
+    if (extra.length) parts.push(["khác", extra.reduce((x, s) => x + (b.counts[s] || 0), 0)]);
+    return {t: b.t, parts, total: parts.reduce((x, p) => x + p[1], 0)};
+  });
+  const maxV = Math.max(0, ...bars.map(b => b.total));
+  if (maxV === 0){ box.append(el("p", {class:"empty"}, `Chưa có yêu cầu nào trong ${WIN_TEXT[d.minutes]} vừa qua.`)); return; }
+  const W = Math.max(320, Math.round(box.clientWidth || 1000)), H = 280, L = 42, R = 8, T = 12, B = 30, iw = W - L - R, ih = H - T - B;
+  const step = (() => { const raw = maxV / 4, mag = Math.pow(10, Math.floor(Math.log10(raw || 1))); for (const m of [1, 2, 5, 10]) if (m * mag >= raw) return Math.max(1, m * mag); return 10 * mag; })();
+  const top = Math.ceil(maxV / step) * step;
+  const s = svg("svg", {viewBox:`0 0 ${W} ${H}`, role:"img",
+                        "aria-label":`Biểu đồ cột chồng số yêu cầu theo chi nhánh, cao nhất ${maxV} yêu cầu một cột`});
+  const ax = svg("g", {class:"axis"});
+  for (let v = 0; v <= top; v += step){
+    const y = T + ih - (v / top) * ih;
+    ax.append(svg("line", {x1:L, x2:W - R, y1:y, y2:y, "stroke-width":1}));
+    const tx = svg("text", {x:L - 6, y:y + 4, "text-anchor":"end"}); tx.textContent = v; ax.append(tx);
+  }
+  const n = bars.length, bw = iw / n, gap = Math.max(1, Math.min(6, bw * 0.25)), w = Math.max(1, bw - gap);
+  for (const i of [0, Math.floor(n / 2), n - 1]){
+    const tx = svg("text", {x: L + i * bw + bw / 2, y: H - 8, "text-anchor": i === 0 ? "start" : (i === n - 1 ? "end" : "middle")});
+    tx.textContent = vn(bars[i].t).slice(0, tl.bucket_s < 60 ? 8 : 5); ax.append(tx);
+  }
+  s.append(ax);
+  const tip = el("div", {class:"tip", hidden:""});
+  bars.forEach((b, i) => {
+    const x = L + i * bw + gap / 2; let y = T + ih;
+    const nonzero = b.parts.filter(p => p[1] > 0);
+    nonzero.forEach((p, k) => {
+      const h = (p[1] / top) * ih, isTop = k === nonzero.length - 1, segGap = k > 0 ? 2 : 0;
+      const y0 = y - h, hh = Math.max(0.5, h - segGap), r = isTop ? Math.min(4, w / 2, hh) : 0;
+      const fill = BRANCH_COLOR[p[0]] || "var(--other)";
+      if (r > 0){
+        s.append(svg("path", {fill, d:`M${x},${y - segGap} V${y0 + r} Q${x},${y0} ${x + r},${y0} `
+          + `H${x + w - r} Q${x + w},${y0} ${x + w},${y0 + r} V${y - segGap} Z`}));
+      } else {
+        s.append(svg("rect", {x, y: y0, width: w, height: hh, fill}));
+      }
+      y = y0;
+    });
+    const hit = svg("rect", {x: L + i * bw, y: T, width: bw, height: ih, fill:"transparent"});
+    hit.addEventListener("mouseenter", () => {
+      tip.replaceChildren(el("div", {}, el("b", {}, `${vn(b.t)} – ${vn(new Date(new Date(b.t).getTime() + tl.bucket_s * 1000).toISOString())}`)));
+      for (const p of b.parts) tip.append(el("div", {}, el("span", {class:"key", style:`background:${BRANCH_COLOR[p[0]] || "var(--other)"}`}), `${p[0]}: ${p[1]}`));
+      tip.append(el("div", {}, `Tổng: ${b.total}`));
+      tip.hidden = false;                                   // hiện trước để đo bề rộng; đặt cạnh cột, không che cột
+      const tw = tip.offsetWidth, cx = L + i * bw + bw / 2;
+      const left = cx < W / 2 ? cx + bw / 2 + 8 : cx - bw / 2 - 8 - tw;
+      tip.style.left = Math.min(Math.max(left, 0), W - tw) + "px";
+      tip.style.top = (T + 4) + "px";
+    });
+    hit.addEventListener("mouseleave", () => { tip.hidden = true; });
+    s.append(hit);
+  });
+  box.append(s, tip);
+}
+
+function renderBranches(d){
+  errBox("err-branch", d.errors.mysql);
+  const conns = d.rabbit ? d.rabbit.connections : null;
+  const rows = d.db ? d.db.by_branch.map(b => {
+    const st = b.status, other = b.n - (st.RECOGNIZED || 0) - (st.NEW_CUSTOMER || 0) - (st.UNKNOWN || 0) - (st.NO_FACE || 0);
+    const live = conns ? conns.filter(c => c.branch === b.key).length : null;
+    return el("tr", {}, branchCell(b.key), el("td", {class:"num"}, fmtInt(b.n)),
+      el("td", {class:"num"}, fmtInt(st.RECOGNIZED || 0)), el("td", {class:"num"}, fmtInt(st.NEW_CUSTOMER || 0)),
+      el("td", {class:"num"}, fmtInt(st.UNKNOWN || 0)), el("td", {class:"num"}, fmtInt(st.NO_FACE || 0)),
+      el("td", {class:"num"}, fmtInt(other)), el("td", {class:"num"}, fmtMs(b.lat_p50)), el("td", {class:"num"}, fmtMs(b.lat_p95)),
+      el("td", {class:"num"}, fmtInt(b.orders.n)),
+      el("td", {class:"dim"}, ago(b.last, d.db.now_utc)),
+      el("td", {class: live ? "match" : "dim"}, live === null ? "–" : (live ? `${live} kết nối` : "không")));
+  }) : [];
+  table("t-branch", ["Chi nhánh", ["Yêu cầu", 1], ["Quen", 1], ["Mới", 1], ["Chưa nhận", 1], ["Không mặt", 1], ["Khác", 1],
+                     ["p50 ms", 1], ["p95 ms", 1], ["Đơn", 1], "Lần cuối", "Đang nối"], rows);
+}
+function renderWorkers(d){
+  errBox("err-worker", d.errors.mysql);
+  const rows = d.db ? d.db.by_worker.map(w => el("tr", {}, el("td", {class:"mono"}, w.key), el("td", {class:"num"}, fmtInt(w.n)),
+      el("td", {class:"num"}, fmtMs(w.lat_avg)), el("td", {class:"num"}, fmtMs(w.lat_p95)), el("td", {class:"dim"}, ago(w.last, d.db.now_utc)))) : [];
+  table("t-worker", ["Worker", ["Việc", 1], ["TB ms", 1], ["p95 ms", 1], "Lần cuối"], rows, "chưa worker nào ghi log trong cửa sổ này");
+}
+function renderQueues(d){
+  errBox("err-queue", d.errors.rabbitmq);
+  const rows = d.rabbit ? d.rabbit.queues.map(q => el("tr", {}, el("td", {class:"mono"}, q.name), el("td", {class:"dim"}, q.type || ""),
+      el("td", {class: "num" + (q.is_dlq && q.ready > 0 ? " mismatch" : "")}, fmtInt(q.ready)), el("td", {class:"num"}, fmtInt(q.unacked)),
+      el("td", {class:"num"}, fmtInt(q.consumers)), el("td", {class:"num"}, q.publish_rate.toLocaleString("vi-VN")),
+      el("td", {class:"num"}, q.deliver_rate.toLocaleString("vi-VN")))) : [];
+  table("t-queue", ["Hàng đợi", "Loại", ["Chờ", 1], ["Chưa ack", 1], ["Consumer", 1], ["Vào/giây", 1], ["Ra/giây", 1]], rows);
+}
+function renderConns(d){
+  errBox("err-conn", d.errors.rabbitmq);
+  const rows = d.rabbit ? d.rabbit.connections.map(c => el("tr", {},
+      c.branch ? branchCell(c.branch) : el("td", {class:"dim"}, "—"),
+      el("td", {class:"mono"}, c.user), el("td", {class:"mono"}, c.peer_host || ""), el("td", {class:"mono"}, c.client_name || ""),
+      el("td", {class:"dim"}, c.state || ""), timeCell(c.connected_at, true))) : [];
+  table("t-conn", ["Chi nhánh", "Tài khoản", "Từ IP", "Tên kết nối", "Trạng thái", "Từ lúc"], rows, "không có kết nối nào");
+}
+function renderLog(d){
+  errBox("err-log", d.errors.mysql);
+  if (!d.db){ table("t-log", [], []); return; }
+  const prev = state.lastLogId;
+  $("log-sub").textContent = `${d.db.recent.length} dòng mới nhất · không phụ thuộc cửa sổ thời gian`;
+  const rows = d.db.recent.map(r => el("tr", {class: prev !== null && r.log_id > prev ? "fresh" : null},
+    el("td", {class:"num mono"}, r.log_id), timeCell(r.created_at, true), branchCell(r.branch_id),
+    el("td", {}, statusEl(r.status)), el("td", {class:"num"}, r.customer_id === null ? "–" : "#" + r.customer_id),
+    el("td", {class:"num"}, r.similarity === null ? "–" : r.similarity.toFixed(3)), el("td", {class:"num"}, fmtMs(r.latency_ms)),
+    el("td", {class:"mono"}, r.worker || ""), el("td", {class:"mono dim"}, r.request_id + "…")));
+  state.lastLogId = d.db.recent.length ? d.db.recent[0].log_id : prev;
+  table("t-log", [["log_id", 1], "Lúc", "Chi nhánh", "Kết quả", ["Khách", 1], ["Độ giống", 1], ["ms", 1], "Worker", "request_id"], rows,
+        "chưa có dòng nào");
+}
+function renderOrders(d){
+  errBox("err-order", d.errors.mysql);
+  const rows = d.db ? d.db.orders_recent.map(o => el("tr", {}, el("td", {class:"num mono"}, "#" + o.order_id), timeCell(o.ordered_at, true),
+      branchCell(o.branch_id), el("td", {class:"num"}, "#" + o.customer_id), el("td", {class:"num"}, fmtInt(o.items)),
+      el("td", {class:"num"}, fmtVnd(o.total_amount)))) : [];
+  table("t-order", [["Đơn", 1], "Lúc", "Chi nhánh", ["Khách", 1], ["Món", 1], ["Tổng", 1]], rows, "chưa có đơn");
+}
+function renderStatus(d){
+  const m = $("st-mysql"), r = $("st-rabbit");
+  m.className = "pill " + (d.errors.mysql ? "bad" : "ok"); m.title = d.errors.mysql || "đọc được";
+  r.className = "pill " + (d.errors.rabbitmq ? "bad" : "ok"); r.title = d.errors.rabbitmq || "đọc được";
+  $("clock").replaceChildren("giờ CSDL ", el("b", {}, d.db ? vn(d.db.now_utc) : "–"), d.db ? ` (UTC ${d.db.now_utc.slice(11, 19)})` : "");
+}
+function render(d){
+  state.data = d;
+  buildWindows(d.windows);
+  renderStatus(d); renderTiles(d); renderChart(d); renderBranches(d); renderWorkers(d);
+  renderQueues(d); renderConns(d); renderLog(d); renderOrders(d);
+  $("updated").textContent = "cập nhật lúc " + vn(d.server_utc) + (state.paused ? " · đang tạm dừng" : "");
+}
+
+async function poll(force){
+  if (document.body.dataset.auth !== "in" || state.inflight || (!force && (state.paused || document.hidden))) return;
+  state.inflight = true;
+  try { render(await api("/api/summary?minutes=" + state.minutes)); }
+  catch (e) { if (e.message !== "401") $("updated").textContent = "lỗi: " + e.message; }
+  finally { state.inflight = false; }
+}
+
+// ------------------------------------------------------------------ đối chiếu
+$("btn-rec").addEventListener("click", async ev => {
+  const btn = ev.currentTarget, out = $("rec-out");
+  btn.disabled = true; out.replaceChildren(el("p", {class:"empty"}, "đang đối chiếu..."));
+  try {
+    const r = await api("/api/reconcile");
+    const ids = a => a.length ? a.map(x => "#" + x).join(", ") : "không có";
+    out.replaceChildren(
+      el("p", {class: r.clean ? "match" : "mismatch", style:"margin-top:10px"}, r.clean ? "Sạch: hai CSDL khớp nhau, không có cặp khách trùng." : "Có điểm lệch, xem bên dưới."),
+      el("dl", {},
+        el("dt", {}, "Khách MySQL"), el("dd", {}, fmtInt(r.customers)),
+        el("dt", {}, "Embedding pgvector"), el("dd", {}, fmtInt(r.embeddings) + " (" + r.per_customer.map(p => `#${p.customer_id}:${p.n}`).join(" ") + ")"),
+        el("dt", {}, "Khách không có embedding"), el("dd", {class: r.no_embedding.length ? "mismatch" : null}, ids(r.no_embedding)),
+        el("dt", {}, "Embedding không có khách"), el("dd", {class: r.no_customer.length ? "mismatch" : null}, ids(r.no_customer)),
+        el("dt", {}, `Cặp trùng (≥ ${r.threshold})`), el("dd", {class: r.duplicates.length ? "mismatch" : null},
+          r.duplicates.length ? r.duplicates.map(p => `#${p.a}~#${p.b} (${p.sim})`).join(", ") : "không có"),
+        el("dt", {}, "Lúc kiểm"), el("dd", {}, vn(r.checked_utc, true) + (r.cached_s ? ` (kết quả giữ lại ${r.cached_s} giây trước)` : ""))),
+      el("p", {class:"foot"}, "Muốn dọn dữ liệu mồ côi thì chạy tools.reconcile --fix trên máy lab sau khi đã xem kỹ; trang này không sửa gì."));
+  } catch (e) { if (e.message !== "401") out.replaceChildren(el("p", {class:"mismatch", style:"margin-top:10px"}, "Lỗi: " + e.message)); }
+  finally { btn.disabled = false; }
+});
+
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+setInterval(poll, 2000);
+(async () => {
+  try {
+    const s = await api("/api/session");
+    if (s.logged_in) showApp(s.user); else showLogin("");
+  } catch (e) { showLogin("Không hỏi được máy chủ: " + e.message); }
+})();
+</script>
+</body>
+</html>

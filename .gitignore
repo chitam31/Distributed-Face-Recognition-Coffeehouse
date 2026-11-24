@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+client/.env
+certs/
+data/
+results/
+dataset/*
+!dataset/README.md
+*.npz

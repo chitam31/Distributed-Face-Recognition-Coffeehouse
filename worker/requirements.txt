@@ -1,0 +1,6 @@
+onnxruntime==1.18.1
+opencv-python-headless==4.9.0.80
+pika==1.3.2
+PyMySQL==1.1.1
+cryptography==42.0.8        # MySQL 8 dùng caching_sha2_password, PyMySQL cần gói này
+psycopg[binary]==3.2.1

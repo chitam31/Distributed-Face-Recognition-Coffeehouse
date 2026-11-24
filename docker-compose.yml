@@ -1,0 +1,126 @@
+# Một lệnh dựng toàn bộ phía server:
+#   docker compose up -d --build --scale worker=3
+# Mở rộng / thu nhỏ khi đang chạy:
+#   docker compose up -d --scale worker=1
+# Chạy công cụ (enroll, đánh giá, benchmark...) ngay trong container, không cần cài insightface trên máy:
+#   docker compose run --rm tools tools.enroll --dataset dataset --per-person 2
+name: coffeehouse-face
+
+x-app-build: &app-build
+  context: .
+  dockerfile: worker/Dockerfile
+
+x-app-env: &app-env
+  RABBIT_HOST: rabbitmq
+  RABBIT_USER: ${RABBIT_ADMIN_USER:-coffee_admin}
+  RABBIT_PASS: ${RABBIT_ADMIN_PASS:-coffee_admin_123}
+  MYSQL_HOST: mysql
+  MYSQL_USER: coffee
+  MYSQL_PASSWORD: coffee123
+  MYSQL_DB: coffeehouse
+  PG_HOST: postgres
+  PG_USER: coffee
+  PG_PASSWORD: coffee123
+  PG_DB: faces
+  PHOTO_DIR: /data/photos
+  SIM_THRESHOLD: ${SIM_THRESHOLD:-0.45}
+  DEMO_DELAY_MS: ${DEMO_DELAY_MS:-0}     # đặt 4000 khi demo kill worker
+  ORT_THREADS: ${ORT_THREADS:-0}          # số luồng ONNX mỗi worker; 0 = tự động
+  QUEUE_TYPE: ${QUEUE_TYPE:-quorum}
+  MIN_BLUR_VAR: ${MIN_BLUR_VAR:-30}        # độ nét tối thiểu của mặt; ảnh mờ hơn -> NO_FACE
+  MIN_FACE_PX: ${MIN_FACE_PX:-60}          # cạnh nhỏ nhất của khuôn mặt (pixel)
+  MULTI_FACE_POLICY: ${MULTI_FACE_POLICY:-largest}   # largest | reject
+
+x-app-deps: &app-deps
+  rabbitmq: {condition: service_healthy}
+  postgres: {condition: service_healthy}
+  mysql:    {condition: service_healthy}
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management          # UI quản lý: http://<server>:15672
+    hostname: rabbitmq
+    environment:
+      # Đổi tài khoản mặc định: user "guest" của RabbitMQ chỉ cho phép kết nối từ localhost,
+      # các laptop chi nhánh ở máy khác sẽ không vào được.
+      RABBITMQ_DEFAULT_USER: ${RABBIT_ADMIN_USER:-coffee_admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_ADMIN_PASS:-coffee_admin_123}
+    ports:
+      - "127.0.0.1:5672:5672"                         # AMQP cho tool/client chạy ngay trên máy server
+      - "${RABBIT_BIND_IP:-127.0.0.2}:5672:5672"     # AMQP cho chi nhánh: IP mạng riêng (ZeroTier) của máy server
+      - "127.0.0.1:15672:15672"                       # Management UI chỉ mở trên chính máy server
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: coffee
+      POSTGRES_PASSWORD: coffee123
+      POSTGRES_DB: faces
+    volumes:
+      - ./sql/pg_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${PG_HOST_PORT:-5432}:5432"    # chỉ máy host truy cập; đổi PG_HOST_PORT trong .env nếu cổng bận
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coffee -d faces"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: coffeehouse
+    volumes:
+      - ./sql/mysql_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mysqldata:/var/lib/mysql
+    ports:
+      - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306" # chỉ máy host truy cập; đổi MYSQL_HOST_PORT trong .env nếu đã có MySQL cài sẵn
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot123 --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  worker:
+    build: *app-build
+    image: coffeehouse-face-app
+    # Không đặt container_name và không publish cổng cố định: bắt buộc để dùng --scale worker=N.
+    depends_on: *app-deps
+    environment: *app-env
+    volumes:
+      - photos:/data/photos                   # thư mục ảnh dùng chung cho mọi worker
+    restart: unless-stopped
+    stop_grace_period: 30s                    # cho worker kịp xử lý nốt message đang làm
+
+  # Công cụ chạy một lần (không khởi động cùng `up`): docker compose run --rm tools tools.<tên> ...
+  tools:
+    build: *app-build
+    image: coffeehouse-face-app
+    profiles: ["tools"]
+    entrypoint: ["python", "-m"]
+    depends_on: *app-deps
+    environment: *app-env
+    volumes:
+      - photos:/data/photos
+      - ./dataset:/app/dataset:ro             # ảnh thực nghiệm (chỉ đọc)
+      - ./results:/app/results                # kết quả đo đạc ghi ra máy host
+    restart: "no"
+
+volumes:
+  rabbitdata: {}
+  pgdata: {}
+  mysqldata: {}
+  photos: {}

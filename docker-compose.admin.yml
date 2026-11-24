@@ -1,0 +1,38 @@
+# Trang quản trị CHỈ ĐỌC (admin/web.py), chạy cạnh hệ thống đang có trên máy lab. Tệp riêng để không phải sửa
+# docker-compose.yml của lab (bản trên lab đã chỉnh cổng). Dùng qua scripts/admin_web.sh, hoặc:
+#   docker compose -f docker-compose.yml -f docker-compose.admin.yml up -d admin
+# Không build lại image: mã của trang được gắn vào container (chỉ đọc), image coffeehouse-face-app đã có sẵn
+# pymysql, psycopg và thư mục common/, tools/. Worker không bị tạo lại.
+services:
+  admin:
+    image: coffeehouse-face-app
+    entrypoint: ["python", "-m", "admin.web", "--bind", "0.0.0.0", "--port", "8090"]
+    depends_on:
+      rabbitmq: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+      mysql:    {condition: service_healthy}
+    environment:
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?đặt ADMIN_PASSWORD (ít nhất 10 ký tự) trong .env trước khi chạy trang quản trị}
+      RABBIT_HOST: rabbitmq
+      RABBIT_USER: ${RABBIT_ADMIN_USER:-coffee_admin}
+      RABBIT_PASS: ${RABBIT_ADMIN_PASS:-coffee_admin_123}
+      MYSQL_HOST: mysql
+      MYSQL_USER: coffee
+      MYSQL_PASSWORD: coffee123
+      MYSQL_DB: coffeehouse
+      PG_HOST: postgres
+      PG_USER: coffee
+      PG_PASSWORD: coffee123
+      PG_DB: faces
+      SIM_THRESHOLD: ${SIM_THRESHOLD:-0.45}    # ngưỡng tìm cặp khách trùng khi đối chiếu, giống worker
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./admin:/app/admin:ro
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-8090}:8090"  # CHỈ máy lab; từ máy khác thì đi qua đường hầm SSH
+    read_only: true                           # container không ghi được gì lên hệ thống tệp
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped

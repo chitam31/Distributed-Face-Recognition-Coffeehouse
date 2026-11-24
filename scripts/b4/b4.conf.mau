@@ -1,0 +1,25 @@
+# b4.conf - cấu hình cho b4_ssh.sh. Chép thành b4.conf rồi sửa ba dòng có chữ ĐIỀN.
+# Tài khoản Windows của Thuận và Khang lấy từ dòng "Tài khoản: ..." mà bat_ssh.ps1 in ra.
+
+KEY="$HOME/.ssh/id_b4"                         # khoá SSH riêng cho buổi B4 (tạo ở bước 1 của hướng dẫn)
+
+LAB="labsit@10.234.18.42"                      # máy lab = server + chi nhánh A
+LAB_DIR="coffeehouse-face"                     # tính từ thư mục nhà của labsit
+LAB_PY="~/.venv/bin/python"                    # venv client trên lab (có pika, opencv)
+
+B="ĐIỀN_TAI_KHOAN_THUAN@10.234.18.129"         # chi nhánh B (Thuận)
+B_DIR="coffeehouse-client"                     # thư mục có client\ và common\ trên máy Thuận (tính từ C:\Users\<tài khoản>)
+C="ĐIỀN_TAI_KHOAN_KHANG@10.234.18.61"          # chi nhánh C (Khang)
+C_DIR="coffeehouse-client"
+
+D_DIR="$HOME/coffeehouse-face"                 # thư mục có client/ và common/ trên laptop em (WSL)
+D_PY="$HOME/coffeehouse-face/.venv/bin/python"
+
+COUNT=15                                       # số yêu cầu mỗi chi nhánh
+
+# Ảnh lấy từ dataset/ trên máy lab. Đều là khách đã đủ 5 vector (#1 Chitam, #5 Huy), nên với --no-enroll
+# B4 không tạo khách mới và không thêm vector.
+IMG_A="dataset/Chitam/02.jpg"                  # A dùng thẳng trên lab
+SRC_B="dataset/zz_Huy/06.jpg"                  # chép sang máy B thành demo_photos\b4_B.jpg
+SRC_C="dataset/Chitam/05.jpg"                  # chép sang máy C thành demo_photos\b4_C.jpg
+SRC_D="dataset/Chitam/07.jpg"                  # chép sang laptop em thành b4_D.jpg
